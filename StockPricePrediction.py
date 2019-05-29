@@ -6,7 +6,7 @@ import math
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Activation, Dropout
 from keras.layers import LSTM
 import preprocessing 
 
@@ -14,8 +14,10 @@ import preprocessing
 np.random.seed(7)
 
 # IMPORTING DATASET 
-dataset = pd.read_csv('apple_share_price.csv', usecols=[1,2,3,4])
-dataset = dataset.reindex(index = dataset.index[::-1])
+# dataset = pd.read_csv('apple_share_price.csv', usecols=[1,2,3,4])
+dataset = pd.read_csv('KOTAKBANK.NS.csv', usecols=[1,2,3,4])
+
+dataset = dataset.reindex(index = dataset.index[::1])
 
 # CREATING OWN INDEX FOR FLEXIBILITY
 obs = np.arange(1, len(dataset) + 1, 1)
@@ -30,7 +32,7 @@ plt.plot(obs, OHLC_avg, 'r', label = 'OHLC avg')
 plt.plot(obs, HLC_avg, 'b', label = 'HLC avg')
 plt.plot(obs, close_val, 'g', label = 'Closing price')
 plt.legend(loc = 'upper right')
-plt.show()
+# plt.show()
 
 # PREPARATION OF TIME SERIES DATASE
 OHLC_avg = np.reshape(OHLC_avg.values, (len(OHLC_avg),1)) # 1664
@@ -49,20 +51,30 @@ trainX, trainY = preprocessing.new_dataset(train_OHLC, step_size)
 testX, testY = preprocessing.new_dataset(test_OHLC, step_size)
 
 # RESHAPING TRAIN AND TEST DATA
-trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-testX = np.reshape(testX, (testX.shape[0], 1, testX.shape[1]))
+trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
+testX = np.reshape(testX, (testX.shape[0], testX.shape[1], 1))
 
 
 # LSTM MODEL
 model = Sequential()
-model.add(LSTM(32, input_shape=(1, step_size), return_sequences = True))
+model.add(LSTM(32, input_shape=(step_size, 1), return_sequences = True))
+model.add(Dropout(0.02))
+# model.add(LSTM(16, return_sequences=True))
+# model.add(Dropout(0.02))
 model.add(LSTM(16))
+model.add(Dropout(0.02))
 model.add(Dense(1))
 model.add(Activation('linear'))
 
 # MODEL COMPILING AND TRAINING
-model.compile(loss='mean_squared_error', optimizer='adagrad') # Try SGD, adam, adagrad and compare!!!
-model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
+import keras
+
+try:
+    model = keras.models.load_model('LSTM.h5')
+except:
+    model.compile(loss='mean_squared_error', optimizer='adagrad') # Try SGD, adam, adagrad and compare!!!
+    model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
+    model.save("LSTM.h5")
 
 # PREDICTION
 trainPredict = model.predict(trainX)
